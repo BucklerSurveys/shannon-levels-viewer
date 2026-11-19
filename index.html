@@ -84,13 +84,17 @@ function mesh(z,colour){
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));
   if(col)g.setAttribute("color",new THREE.BufferAttribute(col,3));
   g.setIndex(new THREE.BufferAttribute(new Uint32Array(idx),1));g.computeVertexNormals();return g}
-function mat(c,op,vc){return new THREE.MeshLambertMaterial({color:c,vertexColors:!!vc,transparent:op<1,opacity:op,side:THREE.DoubleSide,depthWrite:op>=1})}
+// Every layer writes depth, even when see-through, and the lower layers are drawn first (renderOrder below), so a layer
+// is never painted over one that is above it (19 Nov 2026: the formation showed above the finished level when both were
+// see-through, because neither wrote depth and the formation was drawn last).
+function mat(c,op,vc,back){return new THREE.MeshLambertMaterial({color:c,vertexColors:!!vc,transparent:op<1,opacity:op,side:THREE.DoubleSide,depthWrite:true,
+  polygonOffset:!!back,polygonOffsetFactor:back?1:0,polygonOffsetUnits:back?1:0})}
 const M={};
 M.drone=new THREE.Mesh(mesh(L.drone,true),mat(0xffffff,1,true));
 M.gh=new THREE.Mesh(mesh(L.gh),mat(0x8e6fb8,0.85));
 M.fin=new THREE.Mesh(mesh(L.fin),mat(0x3b6fb6,0.7));
-M.form=new THREE.Mesh(mesh(L.form),mat(0xe8743b,0.85));
-M.fin.renderOrder=2;M.gh.renderOrder=1;M.form.renderOrder=3;
+M.form=new THREE.Mesh(mesh(L.form),mat(0xe8743b,0.85,false,true));
+M.form.renderOrder=1;M.fin.renderOrder=2;M.gh.renderOrder=3;   // formation (lowest) first, then finished level
 for(const k in M)world.add(M[k]);
 {const n=D.nspots,p=new Float32Array(n*3);for(let i=0;i<n;i++){p[3*i]=SP[3*i];p[3*i+1]=SP[3*i+2]-Z0+0.05;p[3*i+2]=-SP[3*i+1]}
  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(p,3));
@@ -114,7 +118,7 @@ function colour(){
 colour();
 for(const k of["photo","height","diff"])document.getElementById("C_"+k).onclick=e=>{mode=k;document.querySelectorAll("[id^=C_]").forEach(b=>b.classList.toggle("on",b.id=="C_"+k));colour()};
 for(const k of["drone","gh","fin","form","spots"]){const cb=document.getElementById("L_"+k);cb.onchange=()=>{M[k].visible=cb.checked};M[k].visible=cb.checked;
-  const o=document.getElementById("O_"+k);if(o)o.oninput=()=>{const m=M[k].material,v=+o.value;m.opacity=v;m.transparent=v<1;m.depthWrite=v>=1;m.needsUpdate=true}}
+  const o=document.getElementById("O_"+k);if(o)o.oninput=()=>{const m=M[k].material,v=+o.value;m.opacity=v;m.transparent=v<1;m.needsUpdate=true}}
 const ex=document.getElementById("ex");function setEx(){world.scale.y=+ex.value;document.getElementById("exv").textContent=ex.value}ex.oninput=setEx;setEx();
 const cx=OX+NX*G/2,cz=-(OY+NY*G/2),span=Math.max(NX,NY)*G;
 function fit(){const t=Math.tan(cam.fov*Math.PI/360),w=NX*G*1.08,h=NY*G*1.08;return Math.max(h/2/t,w/2/t/cam.aspect)}
