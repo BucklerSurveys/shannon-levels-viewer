@@ -17,7 +17,7 @@ box-shadow:0 2px 8px #0005;font-size:12px;line-height:1.35;max-width:min(480px,9
 #gpsbar button{border:0;border-radius:22px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;background:#fff;color:#1a73e8;box-shadow:0 1px 5px #0004}
 #gpsbar button.on{background:#1a73e8;color:#fff}
 #me{position:absolute;left:12px;bottom:12px;max-width:min(360px,60%);background:var(--panel);border-radius:8px;padding:7px 10px;box-shadow:0 1px 6px #0004;font-size:13px;display:none;z-index:6}
-@media (max-width:760px){#app{flex-direction:column}#side{width:auto;height:38%;border-left:0;border-top:1px solid var(--line)}}
+@media (max-width:760px){#app{flex-direction:column}#side{width:auto;height:38%;border-left:0;border-top:1px solid var(--line)}#tag{font-size:11px;padding:6px 7px}#tag td:last-child{white-space:normal}}
 </style></head><body><div id="app"><div id="view"><div id="tag"></div><div id="me"></div><div id="gpsbar"><button id="B_gps">My location</button></div></div><div id="side">
 <h1>LHR042 formation for machine control 2026-11-23</h1><div class="note">WORKING FORMATION from AECOM tender information, the only design held: remade when AECOM issue construction levels. Site grid (Greenhatch 2025), m OD.</div>
 <div class="note" id="cnt"></div><h2>Formation, by build-up below finished level</h2><div id="key"></div>
@@ -93,7 +93,10 @@ function placePin(){if(!pinLocal)return;const w=world.localToWorld(pinLocal.clon
 document.getElementById("cTag").onchange=placePin;
 const fmt=v=>isNaN(v)?"-":v.toFixed(3),sg=v=>isNaN(v)?"-":(v>=0?"+":"\u2212")+Math.abs(v).toFixed(3);
 const df=v=>isNaN(v)?"-":(v>=0?"dig ":"fill ")+Math.abs(v).toFixed(3);
-R.domElement.addEventListener("click",e=>{const r=R.domElement.getBoundingClientRect();m.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(m,cam);
+// a click (mouse) or a tap (finger) on the model: the same pick. OrbitControls (r128) blocks the click a browser
+// sends after a tap, so taps are found here from the touch events themselves (Rich, 23 Nov 2026: the marker did
+// not appear when the model was tapped on a phone)
+function pick(cx,cy){const r=R.domElement.getBoundingClientRect();m.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(m,cam);
  const hits=ray.intersectObjects([form,fl].concat(SVL.map(x=>x.m)).filter(o=>o.visible));const h=hits[0];if(!h)return;
  const p=world.worldToLocal(h.point.clone());
  const up=new THREE.Raycaster(new THREE.Vector3(p.x,p.y,500),new THREE.Vector3(0,0,-1));const old=world.scale.z;world.scale.z=1;world.updateMatrixWorld(true);
@@ -114,7 +117,13 @@ R.domElement.addEventListener("click",e=>{const r=R.domElement.getBoundingClient
   ${row("Formation",fmt(zf))}${row("Finished level (AECOM)",fmt(za),isNaN(za-zf)?"":"build-up "+(za-zf).toFixed(3))}
   ${SVL.map(({s},i)=>row(s.s,fmt(zs[i]),isNaN(zs[i])?"no survey here":`${df(zs[i]-zf)} to formation`)).join("")}
   ${SVL.length>1&&!isNaN(zs[0])?SVL.slice(1).map(({s},i)=>isNaN(zs[i+1])?"":row(`${s.s} less ${SVL[0].s.s}`,sg(zs[i+1]-zs[0]))).join(""):""}
-  </table><div class="x">Levels m OD</div>`;placePin()});
+  </table><div class="x">Levels m OD</div>`;placePin()}
+let tapT=0,t0=null;
+R.domElement.addEventListener("click",e=>{if(Date.now()-tapT>800)pick(e.clientX,e.clientY)});
+R.domElement.addEventListener("touchstart",e=>{t0=e.touches.length==1?{x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()}:null},{passive:true});
+R.domElement.addEventListener("touchmove",e=>{if(t0&&(e.touches.length>1||Math.hypot(e.touches[0].clientX-t0.x,e.touches[0].clientY-t0.y)>10))t0=null},{passive:true});
+R.domElement.addEventListener("touchend",e=>{if(t0&&!e.touches.length){const c=e.changedTouches[0];
+ if(Date.now()-t0.t<600&&Math.hypot(c.clientX-t0.x,c.clientY-t0.y)<=10){tapT=Date.now();pick(c.clientX,c.clientY)}}t0=null},{passive:true});
 ctl.addEventListener("change",placePin);ex.addEventListener("input",placePin);
 // ---- my location: a blue dot where the phone's GPS says you are (no levels). Latitude / longitude to site grid E, N
 // on the phone by a cubic fitted to OSTN15 and the site grid's scale (gps_site_grid.py). Nothing is sent anywhere.
