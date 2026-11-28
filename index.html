@@ -164,7 +164,7 @@ if(DR){document.getElementById("dbox").style.display="block";
  const setD=()=>{DM.forEach(d=>{const v=on("d_"+(d.k=="mh"?"mh":d.k=="hw"?"hw":d.k));d.mk.visible=v;if(d.ln)d.ln.visible=v;[d.mk,d.ln].forEach(o=>{if(o){o.material.depthTest=!on("dX");o.material.needsUpdate=true}})});DLAB.visible=on("d_lab")};
  ["d_surface","d_foul","d_filter","d_mh","d_hw","d_gully","d_lab","dX"].forEach(id=>document.getElementById(id).onchange=setD);setD();
  const ml=DR.m.filter(m=>m.ty!="gully").sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}));
- document.getElementById("dlist").innerHTML=`<table>${ml.map(m=>`<tr data-id="${desc(m.id)}" style="cursor:pointer"><td style="text-decoration:underline"><b>${desc(m.id)}</b></td><td>${desc(m.ty)}</td><td>cover ${dm(m.cl,2)}</td><td>depth ${dm(m.dp,2)}</td></tr>`).join("")}</table>`;
+ document.getElementById("dlist").innerHTML=`<table>${ml.map(m=>`<tr data-id="${desc(m.id)}" style="cursor:pointer"><td style="text-decoration:underline"><b>${desc(m.id)}</b></td><td>${desc(m.ty)}</td><td>E ${m.E.toFixed(3)} N ${m.N.toFixed(3)}</td><td>cover ${dm(m.cl,2)}</td><td>depth ${dm(m.dp,2)}</td></tr>`).join("")}</table>`;
  document.getElementById("dlist").querySelectorAll("tr").forEach(t=>t.onclick=()=>{const d=DM.find(q=>q.kind=="m"&&q.o.id==t.dataset.id);if(d){showDrain({d});goTo(pinLocal)}});
  const np=DR.np||{};document.getElementById("dnotes").innerHTML=DR.notes.map(n=>`<p>${desc(n)}</p>`).join("")+((np.manholes||[]).length||(np.pipes||[]).length?`<p><b>Not on the model</b> (no position found): ${desc([...(np.manholes||[]),...(np.pipes||[])].join(", "))}</p>`:"")+`<p>Data made ${desc(DR.made)}.</p>`}
 function placeDLab(){if(!DR||!DLAB.visible)return;DLAB.children.forEach(s=>s.position.copy(world.localToWorld(s.userData.l.clone())))}
@@ -189,17 +189,22 @@ function showDrain(h){const d=h.d,o=d.o;light(null);dLight(d);let x,y,z,html,lin
    `Formation here ${dm(zf)} m OD; AECOM finished level ${dm(za)} m OD`,o.cl!=null&&!isNaN(za)?`Cover less finished level ${sg(o.cl-za)} m`:"",
    o.inv.length&&!isNaN(zf)?`Lowest invert ${dm(zf-lo,2)} m below formation`:"",o.net?`Network: ${o.net}`:"",`Source: ${o.src}`,
    o.tc?"Position from the tender-pack schedule: not on the current plans' frames":"",o.ap?"Position approximate":"",o.note?`Note: ${o.note}`:""];
-  html=`<div class="one"><b>${desc(o.id)}</b> (${desc(o.ty)}${o.sz?", "+desc(o.sz):""})<table class="s">${rowT("Cover",dm(o.cl))}${o.inv.map(q=>rowT("Invert"+(q[0]&&q[0]!="(schedule)"?" "+desc(q[0]):""),dm(q[1]))).join("")}${rowT("Depth",dm(o.dp,2))}${rowT("Formation here",dm(zf))}${rowT("Finished level here",dm(za))}</table>
+  html=`<div class="one"><b>${desc(o.id)}</b> (${desc(o.ty)}${o.sz?", "+desc(o.sz):""})<table class="s">${rowT("E",o.E.toFixed(3))}${rowT("N",o.N.toFixed(3))}${rowT("Cover",dm(o.cl))}${o.inv.map(q=>rowT("Invert"+(q[0]&&q[0]!="(schedule)"?" "+desc(q[0]):""),dm(q[1]))).join("")}${rowT("Depth",dm(o.dp,2))}${rowT("Formation here",dm(zf))}${rowT("Finished level here",dm(za))}</table>
    ${pipes.length?`<div class="x" style="margin-top:4px">Pipes: ${pipes.map(p=>`${desc(p.id)} ${p.dia?p.dia+" mm ":""}${p.fr==o.id?"out to "+desc(p.to):"in from "+desc(p.fr)}${p.gr?" at "+desc(p.gr):""}`).join("; ")}</div>`:""}</div>`;
-  tg=`<div class="h">${desc(o.id)} <span class="x">${desc(o.ty)}</span></div><table>${rowT("Cover",dm(o.cl,2))}${o.inv.slice(0,3).map(q=>rowT("Invert",dm(q[1],2))).join("")}${rowT("Depth",dm(o.dp,2))}</table>`}
- else{const c=o.c,a=c[h.j],b=c[h.j+1];x=a[0]+(b[0]-a[0])*h.u;y=a[1]+(b[1]-a[1])*h.u;z=a[2]+(b[2]-a[2])*h.u;const inv=z+D.o[2],all=zAll(x,y),zf=all[0][1],za=all[1][1],crown=inv+(o.dia||0)/1000;
+  tg=`<div class="h">${desc(o.id)} <span class="x">${desc(o.ty)}</span></div><table>${rowT("E",o.E.toFixed(3))}${rowT("N",o.N.toFixed(3))}${rowT("Cover",dm(o.cl,2))}${o.inv.slice(0,3).map(q=>rowT("Invert",dm(q[1],2))).join("")}${rowT("Depth",dm(o.dp,2))}</table>`}
+ else{// the pipe's levels at its two ends (Rich, 28 Nov 2026: "the pipe info should show il at each end of the pipe, not
+  // where it is clicked"); the marker stays where it was clicked
+  const c=o.c,a=c[h.j],b=c[h.j+1];x=a[0]+(b[0]-a[0])*h.u;y=a[1]+(b[1]-a[1])*h.u;z=a[2]+(b[2]-a[2])*h.u;
+  const u0=c[0],d0=c[c.length-1],U=zAll(u0[0],u0[1]),W=zAll(d0[0],d0[1]),fu=U[1][1],fd=W[1][1],mu=U[0][1],md=W[0][1];
+  const nu=o.fr&&!o.fr.startsWith("(")?o.fr:"upstream end",nd=o.to&&!o.to.startsWith("(")?o.to:"downstream end";
   lines=[`Pipe ${o.id}${o.fr||o.to?": "+o.fr+" to "+o.to:""}`,`${o.sys}${o.dia?", "+o.dia+" mm":""}${o.mat?", "+o.mat:""}${o.len?", "+(+o.len).toFixed(1)+" m long":""}`,
-   o.gr?`Fall ${o.gr}`:"No fall given",o.lev?`Invert ${dm(o.iu)} m OD upstream, ${dm(o.idn)} downstream; here ${dm(inv)}`:"No invert levels on the drawings: drawn on the finished level",
-   `E ${(x+D.o[0]).toFixed(2)}  N ${(y+D.o[1]).toFixed(2)}`,`Formation here ${dm(zf)} m OD; AECOM finished level ${dm(za)} m OD`,
-   o.lev&&!isNaN(za)?`Finished level to the top of the pipe ${dm(za-crown,2)} m`:"",o.lev&&!isNaN(zf)?`Top of the pipe ${dm(Math.abs(zf-crown),2)} m ${zf>=crown?"below":"ABOVE"} formation`:"",
+   o.gr?`Fall ${o.gr}`:"No fall given",
+   o.lev?`IL at ${nu}: ${dm(o.iu)} m OD`:"No invert levels on the drawings: drawn on the finished level",o.lev?`IL at ${nd}: ${dm(o.idn)} m OD`:"",
+   o.lev&&!isNaN(fu)?`At ${nu}: finished level ${dm(fu)}, formation ${dm(mu)}, finished level to invert ${dm(fu-o.iu,2)} m`:"",
+   o.lev&&!isNaN(fd)?`At ${nd}: finished level ${dm(fd)}, formation ${dm(md)}, finished level to invert ${dm(fd-o.idn,2)} m`:"",
    `Source: ${o.src}`,o.st?`Status: ${o.st}`:"",o.note?`Note: ${o.note}`:""];
-  html=`<div class="one"><b>Pipe ${desc(o.id)}</b> ${desc(o.fr)} &rarr; ${desc(o.to)}<table class="s">${rowT("Size",o.dia?o.dia+" mm":"-")}${rowT("Fall",desc(o.gr||"-"))}${rowT("Invert up",dm(o.iu))}${rowT("Invert down",dm(o.idn))}${o.lev?rowT("Invert here",dm(inv)):""}${rowT("Formation here",dm(zf))}${rowT("Finished level here",dm(za))}</table></div>`;
-  tg=`<div class="h">Pipe ${desc(o.id)} <span class="x">${o.dia?o.dia+" mm":""} ${desc(o.gr||"")}</span></div><table>${o.lev?rowT("Invert here",dm(inv,2)):rowT("Levels","none given")}${rowT("Formation",dm(zf,2))}${rowT("Finished",dm(za,2))}</table>`}
+  html=`<div class="one"><b>Pipe ${desc(o.id)}</b> ${desc(o.fr)} &rarr; ${desc(o.to)}<table class="s">${rowT("Size",o.dia?o.dia+" mm":"-")}${rowT("Fall",desc(o.gr||"-"))}${rowT("Length",o.len?(+o.len).toFixed(1)+" m":"-")}${rowT("IL at "+desc(nu),dm(o.iu))}${rowT("IL at "+desc(nd),dm(o.idn))}</table></div>`;
+  tg=`<div class="h">Pipe ${desc(o.id)} <span class="x">${o.dia?o.dia+" mm":""} ${desc(o.gr||"")}</span></div><table>${o.lev?rowT("IL "+desc(nu),dm(o.iu)):rowT("Levels","none given")}${o.lev?rowT("IL "+desc(nd),dm(o.idn)):""}</table>`}
  pinLocal=new THREE.Vector3(x,y,z);pin.visible=true;
  document.getElementById("info").textContent=lines.filter(Boolean).join("\n");document.getElementById("svc").innerHTML=html;tag.innerHTML=tg;placePin()}
 // the level of a surface at a point: its triangles in 4 m boxes, the highest if there is more than one
